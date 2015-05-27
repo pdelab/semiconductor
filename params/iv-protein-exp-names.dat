@@ -1,0 +1,81 @@
+%--------------------------%
+% input parameters for     %
+% simulation of a protein  %
+%--------------------------%
+
+outdir       = ./output/iv_curve.csv
+
+%-----------------%
+% domain and mesh %
+%-----------------%
+
+mesh_file    = ./mesh/short_channel.xml
+surf_file    = ./mesh/short_channel_facet_region.xml
+subd_file    = ./mesh/short_channel_physical_region.xml
+
+x_length     = 1.0     % nm = 1.0e-9 m
+y_length     = 0.5     % nm = 1.0e-9 m
+z_length     = 0.5     % nm = 1.0e-9 m
+x_grid       = 20
+y_grid       = 10
+z_grid       = 10
+t_grid       = 10
+
+%-------------------%
+% solver parameters %
+%-------------------%
+
+adapt_tol    = 1e-3
+nonlin_tol   = 1e-3
+nonlin_maxit = 15
+damp_factor  = 1.0
+
+
+%-----------------%
+% Boundary values %
+%-----------------%
+
+bc_direction = 0          % direction of Dirichlet boundaries
+                          % 0 x-dir | 1 y-dir | 2 z-dir
+bc_distance  = 4.0e+0     % distance between Dirichlet boundaries
+
+lower_volt = -1.e+2      % mV
+upper_volt =  1.e+2      % mV
+delta_volt =  2.5e+1      % mV
+
+ext_na_bulk =  1.0e+0     % mM = mol / m^3
+int_na_bulk =  1.0e+0     % mM = mol / m^3
+
+ext_k_bulk  =  1.0e-1     % mM = mol / m^3
+int_k_bulk  =  1.0e-1     % mM = mol / m^3
+
+ext_cl_bulk =  1.0e+0     % mM = mol / m^3
+int_cl_bulk =  1.0e+0     % mM = mol / m^3
+
+ext_ca_bulk =  0.1e+0     % mM = mol / m^3
+int_ca_bulk =  0.1e+0     % mM = mol / m^3
+
+
+%------------------%
+% PDE coefficients %
+%------------------%
+
+temperature       = 300
+point_charge_file = ./params/pt_charges.dat
+                           % file containing position of point charges
+                           % none gives default test case
+
+solvent_perm =  8.0e+1     % relative permittivity
+protein_perm =  2.0e+0     % relative permittivity
+
+na_diff      =  1.334e-5   % cm^2 / s
+na_valency   =  1.0
+
+k_diff       =  1.334e-5   % cm^2 / s
+k_valency    =  0.0
+
+cl_diff      =  2.032e-5   % cm^2 / s
+cl_valency   = -1.0
+
+ca_diff      =  0.792e-5   % cm^2 / s
+ca_valency   =  2.0

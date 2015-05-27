@@ -1,0 +1,46 @@
+# Copyright (C) 2014 CCMA@PSU Maximilian Metti, Xiaozhe Hu
+#
+#   Define bilinear and linear forms for 
+#   the linearized Poisson-Nernst-Planck equations
+#
+# Compile this form with FFC: ffc -l dolfin NewtonPNP.ufl.
+
+
+
+##  Finite Element Space
+CG  = FiniteElement("Lagrange", tetrahedron, 1)
+VCG = VectorElement("R", tetrahedron, 0)
+
+##  Previous Iterates
+Na = Coefficient(CG)
+K  = Coefficient(CG)
+Ca = Coefficient(CG)
+Cl = Coefficient(CG)
+Es = Coefficient(CG)
+
+##  Coefficient Functions
+Dna  = Constant(tetrahedron)
+qna  = Constant(tetrahedron)
+Dk   = Constant(tetrahedron)
+qk   = Constant(tetrahedron)
+Dcl  = Constant(tetrahedron)
+qcl  = Constant(tetrahedron)
+Dca  = Constant(tetrahedron)
+qca  = Constant(tetrahedron)
+
+area  = FacetArea(CG.cell())
+n_vec = Coefficient(VCG)
+
+# works for dS(8,9,10,11,12)
+
+M   = qna*( Dna('+')*exp(Na('+')) * inner( avg(grad(Na) + qna*grad(Es)), n_vec ) / area )*dS(8) \
+    +  qk*( Dk('+') *exp(K('+') ) * inner( avg(grad(K)  + qk *grad(Es)), n_vec ) / area )*dS(8) \
+    + qcl*( Dcl('+')*exp(Cl('+')) * inner( avg(grad(Cl) + qcl*grad(Es)), n_vec ) / area )*dS(8) \
+    + qca*( Dca('+')*exp(Ca('+')) * inner( avg(grad(Ca) + qca*grad(Es)), n_vec ) / area )*dS(8)
+      
+      
+      
+      
+      
+      
+      

@@ -1,0 +1,23 @@
+# Copyright (C) 2014 CCMA@PSU Maximilian Metti, Xiaozhe Hu
+#
+#   Define bilinear and linear forms for 
+#   the linearized Poisson-Nernst-Planck equations
+#
+# Compile this form with FFC: ffc -l dolfin NewtonPNP.ufl.
+
+
+
+##  Finite Element Space
+CG = FiniteElement("Lagrange", tetrahedron, 1)
+
+phi = TrialFunction(CG)
+psi = TestFunction(CG)
+
+##  Coefficient Functions
+eps  = Constant(tetrahedron)
+fc   = Constant(tetrahedron)
+
+ 
+a   = ( eps*inner(grad(phi),grad(psi)) )*dx
+
+L   = (fc*psi)*dx

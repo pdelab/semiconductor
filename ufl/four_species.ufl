@@ -1,0 +1,57 @@
+# Copyright (C) 2014 CCMA@PSU Maximilian Metti, Xiaozhe Hu
+#
+#   Define bilinear and linear forms for 
+#   the linearized Poisson-Nernst-Planck equations
+#
+# Compile this form with FFC: ffc -l dolfin NewtonPNP.ufl.
+
+
+
+##  Finite Element Space
+CG = FiniteElement("Lagrange", tetrahedron, 1)
+V  = MixedElement([CG,CG,CG,CG,CG])        # Solution Space
+
+
+(Na, K, Ca, Cl, Phi) = TrialFunction(V)
+(na, k, ca, cl, phi) = TestFunction(V)
+
+
+##  Previous Iterates
+NaNa = Coefficient(CG)
+PP   = Coefficient(CG)
+CaCa = Coefficient(CG)
+ClCl = Coefficient(CG)
+kk   = Coefficient(CG)
+
+
+##  Coefficient Functions
+eps  = Constant(tetrahedron)
+Dp   = Constant(tetrahedron)
+qp   = Constant(tetrahedron)
+mp   = Constant(tetrahedron)
+Dn   = Constant(tetrahedron)
+qn   = Constant(tetrahedron)
+mn   = Constant(tetrahedron)
+s1   = Constant(tetrahedron)
+s2   = Constant(tetrahedron)
+
+
+## Source terms for Dirichlet problem
+pf   = Coefficient(CG)
+nf   = Coefficient(CG)
+fc   = Coefficient(CG)
+
+ 
+a   = ( Dp*exp(NaNa)*(inner(grad(Na),grad(na))))*dx + ( mp*exp(NaNa)*(Na*(inner(grad(NaNa)+qp*grad(kk),grad(na)))+qp*(inner(grad(Phi),grad(na)))) )*dx \
+    + ( Dp*exp(PP)*(inner(grad(K),grad(k))))*dx     + ( mp*exp(PP)  *( K*(inner(grad(PP)+0.0*qp*grad(kk),grad(k)))   +0.0*qp*(inner(grad(Phi),grad(k))))  )*dx \
+    + ( Dp*exp(CaCa)*(inner(grad(Ca),grad(ca))))*dx + ( mp*exp(CaCa)*(Ca*(inner(grad(CaCa)+2.0*qp*grad(kk),grad(ca)))+2.0*qp*(inner(grad(Phi),grad(ca)))) )*dx \
+    + ( Dn*exp(ClCl)*(inner(grad(Cl),grad(cl))))*dx + ( mn*exp(ClCl)*(Cl*(inner(grad(ClCl)+qn*grad(kk),grad(cl)))+qn*(inner(grad(Phi),grad(cl)))) )*dx  \
+    + (            (inner(grad(Phi),grad(phi))))*dx - qp*((1/eps)*((exp(NaNa)*Na + 0.0*exp(PP)*K + 2.0*exp(CaCa)*Ca)*phi))*dx - qn*((1/eps)*(exp(ClCl)*Cl*phi))*dx
+
+
+L   = -( Dp*exp(NaNa)*(inner(grad(NaNa),grad(na))))*dx -     qp*( mp*exp(NaNa)*(inner(grad(kk),grad(na))) )*dx + pf*na*dx \
+      -( Dp*exp(PP)*(inner(grad(PP),grad(k))))*dx      - 0.0*qp*( mp*exp(PP)*(inner(grad(kk),grad(k))) )*dx    + pf*k*dx \
+      -( Dp*exp(CaCa)*(inner(grad(CaCa),grad(ca))))*dx - 2.0*qp*( mp*exp(CaCa)*(inner(grad(kk),grad(ca))) )*dx + pf*ca*dx \
+      -( Dn*exp(ClCl)*(inner(grad(ClCl),grad(cl))))*dx -     qn*( mn*exp(ClCl)*(inner(grad(kk),grad(cl))) )*dx + nf*cl*dx \
+      -(           (inner(grad(kk),grad(phi))))*dx + (qp/eps)*((exp(NaNa) + 0.0*exp(PP) + 2.0*exp(CaCa))*phi)*dx + (qn/eps)*(exp(ClCl)*phi)*dx \
+      +(1/eps)*( (fc*phi)*dx + (s1*phi)*ds(2) + (s2*phi)*ds(3) )

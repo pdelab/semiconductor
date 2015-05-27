@@ -1,0 +1,70 @@
+%--------------------------%
+% input parameters for     %
+% simulation of a protein  %
+%--------------------------%
+
+outdir       = ./output/exp
+
+%-----------------%
+% domain and mesh %
+%-----------------%
+
+mesh_file    = ./mesh/semiconductor/semiconductor.xml
+surf_file    = ./mesh/semiconductor/semiconductor_facet_region.xml
+subd_file    = ./mesh/semiconductor/semiconductor_physical_region.xml
+
+x_length     = 1.0     % nm = 1.0e-9 m
+y_length     = 1.0     % nm = 1.0e-9 m
+z_length     = 1.0     % nm = 1.0e-9 m
+x_grid       = 20
+y_grid       = 20
+z_grid       = 20
+t_grid       = 10
+
+%-------------------%
+% solver parameters %
+%-------------------%
+
+adapt_tol    = 1e-3
+nonlin_tol   = 1e-3
+nonlin_maxit = 15
+damp_factor  = 1.0
+
+
+%-----------------%
+% Boundary values %
+%-----------------%
+
+bc_direction = 0          % direction of Dirichlet boundaries
+                          % 0 x-dir | 1 y-dir | 2 z-dir
+bc_distance  = 4.0e+0     % distance between Dirichlet boundaries
+
+ext_voltage =  0.e-1      % V
+int_voltage = -0.e-1      % V
+
+ext_cat_bulk =  1.0e-1     % mM = mol / m^3
+int_cat_bulk =  1.0e+0     % mM = mol / m^3
+
+ext_an_bulk  =  1.0e+0     % mM = mol / m^3
+int_an_bulk  =  1.0e-1     % mM = mol / m^3
+
+
+%------------------%
+% PDE coefficients %
+%------------------%
+
+temperature  = 300
+
+fix_p        =  -1.0e+1    % fixed charge eC
+fix_n        =   1.0e+1    % fixed charge eC
+
+perm_p =  2.0e+0     % relative permittivity
+perm_n =  2.0e+0     % relative permittivity
+
+cat_diff_p  =  1.334e-5   % cm^2 / s
+cat_diff_n  =  1.334e-5   % cm^2 / s
+cat_valency =  1.0
+
+an_diff_p   =  1.334e-5   % cm^2 / s
+an_diff_n   =  1.334e-5   % cm^2 / s
+an_valency  =  -1.0
