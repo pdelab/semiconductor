@@ -14,8 +14,7 @@
 #include <dolfin.h>
 #include <sys/time.h>
 #include <string.h>
-#include "./include/semiconductor.h"
-#include "./include/current_flux.h"
+#include "./include/mosfet.h"
 #include "./include/poisson_cell_marker.h"
 #include "./include/gradient_recovery.h"
 extern "C"
@@ -54,8 +53,8 @@ public:
     LogCharge(double ext_bulk, double int_bulk, double bc_dist, int bc_dir): Expression(),ext_contact(ext_bulk),int_contact(int_bulk),bc_distance(bc_dist),bc_direction(bc_dir) {}
     void eval(Array<double>& values, const Array<double>& x) const
     {
-        values[0]  = log(ext_contact)*(x[bc_direction]+bc_distance/2.0)/(bc_distance);
-        values[0] -= log(int_contact)*(x[bc_direction]-bc_distance/2.0)/(bc_distance);
+        values[0]  = log(ext_contact);
+        if (x[0] > 0.0) values[0] = log(int_contact);
     }
 private:
     double ext_contact, int_contact, bc_distance;
@@ -70,8 +69,13 @@ public:
     Voltage(double ext_volt, double int_volt, double bc_dist, int bc_dir): Expression(),ext_voltage(ext_volt),int_voltage(int_volt),bc_distance(bc_dist),bc_direction(bc_dir) {}
     void eval(Array<double>& values, const Array<double>& x) const
     {
-        values[0]  = ext_voltage*(x[bc_direction]+bc_distance/2.0)/(bc_distance);
-        values[0] -= int_voltage*(x[bc_direction]-bc_distance/2.0)/(bc_distance);
+        double band = 0.1;
+
+        if (x[0] < -0.5)            values[0] =  ext_voltage;
+        //else if (x[0] < -0.3)       values[0] = -ext_voltage*(x[0]+0.3)/0.2;
+        else if (fabs(x[0]) <= 0.5) values[0] =  (ext_voltage + (int_voltage-ext_voltage)*(x[0]+0.5));
+        //else if (x[0] < 0.5)        values[0] =  int_voltage*(x[0]-0.3)/0.2;
+        else                        values[0] =  int_voltage;
     }
 private:
     double ext_voltage, int_voltage, bc_distance;
@@ -658,10 +662,10 @@ int main()
     //  Open files to write data
     //*****************************
     
-    File meshfile("./output/semiconductor_adapt/mesh.pvd");
-    File  Catfile("./output/semiconductor_adapt/CatFinal.pvd");
-    File   Anfile("./output/semiconductor_adapt/AnFinal.pvd");
-    File  phifile("./output/semiconductor_adapt/phiFinal.pvd");
+    File meshfile("./output/mosfet/mesh.pvd");
+    File  Catfile("./output/mosfet/CatFinal.pvd");
+    File   Anfile("./output/mosfet/AnFinal.pvd");
+    File  phifile("./output/mosfet/phiFinal.pvd");
     
     
     //***********
@@ -704,24 +708,29 @@ int main()
     double eps_0  = 8.85418782e-12 ;    // Vacuum Permittivity (s^4 A^2 / m^3 kg)
     double e_chrg = 1.60217657e-19 ;    // Elementary Positive Charge (A s = C)
     double n_avo  = 6.02214129e+23 ;    // Avogadro's number 1 / mol
-    double L_ref  = 1.0e-09;            // length scale (m)
-    double p_ref  = 1.0e+0;             // ionic reference density (mol / m^3)
-    double D_ref  = 1.334e-5;           // reference diffusivity (cm^2 / s)
+    double L_ref  = 1.0e-06;            // length scale (m)
+    double p_ref  = 1.0e+22;            // ionic reference density (1 / cm^3)
+    double D_ref  = 2.87e+1;            // reference diffusivity (cm^2 / s)
     
     double debye, epsPVal, epsNVal;
-    debye = sqrt( (k_B*temperature*eps_0)/(e_chrg*e_chrg*n_avo*p_ref) ) / L_ref; // Debye Length
+    debye = sqrt( (k_B*temperature*eps_0)/(e_chrg*e_chrg*p_ref) ) / L_ref; // Debye Length
     
-    printf(" The spatial scale is a nanometer \n"); fflush(stdout);
-    printf(" The debye length is %e nanometers \n\n", debye); fflush(stdout);
+    printf(" The spatial scale is %e meters \n", L_ref); fflush(stdout);
+    printf(" The debye length is %e units \n\n", debye); fflush(stdout);
     
     
     // PDE coefficients
-    epsPVal = perm_p * debye;         // dim'less permittivity in P-doped material
-    epsNVal = perm_n * debye;         // dim'less permittivity in N-doped material
+    epsPVal = perm_p * debye*debye;         // dim'less permittivity in P-doped material
+    epsNVal = perm_n * debye*debye;         // dim'less permittivity in N-doped material
+    double gate_capacitance = 0.0*epsNVal;
+
+
     cat_diff_p = cat_diff_p / D_ref;  // dim'less cation diffusivity in P-doped material
     cat_diff_n = cat_diff_n / D_ref;  // dim'less cation diffusivity in N-doped material
     an_diff_p  = an_diff_p  / D_ref;  // dim'less anion diffusivity in P-doped material
     an_diff_n  = an_diff_n  / D_ref;  // dim'less anion diffusivity in N-doped material
+    fix_p      = fix_p / p_ref;       // dim'less P-doping
+    fix_n      = fix_n / p_ref;       // dim'less N-doping
     
     printf(" Dimensionless parameters are given by: \n"); fflush(stdout);
     printf("    P-doped Permittivity:       \t %15.10f \n", epsPVal); fflush(stdout);
@@ -736,20 +745,20 @@ int main()
     
     
     // Boundary conditions
-    int_voltage = int_voltage / (k_B*temperature/e_chrg);      // dim'less internal contact voltage
-    ext_voltage = ext_voltage / (k_B*temperature/e_chrg);      // dim'less external contact voltage
-    int_cat_bulk = int_cat_bulk / p_ref;                             // dim'less internal contact cation
-    ext_cat_bulk = ext_cat_bulk / p_ref;                             // dim'less external contact cation
-    int_an_bulk  = int_an_bulk  / p_ref;                             // dim'less internal contact anion
-    ext_an_bulk  = ext_an_bulk  / p_ref;                             // dim'less external contact anion
+    int_voltage  = int_voltage / (k_B*temperature/e_chrg);      // dim'less internal contact voltage
+    ext_voltage  = ext_voltage / (k_B*temperature/e_chrg);      // dim'less external contact voltage
+    int_cat_bulk = int_cat_bulk / p_ref;                        // dim'less internal contact cation
+    ext_cat_bulk = ext_cat_bulk / p_ref;                        // dim'less external contact cation
+    int_an_bulk  = int_an_bulk  / p_ref;                        // dim'less internal contact anion
+    ext_an_bulk  = ext_an_bulk  / p_ref;                        // dim'less external contact anion
     
     printf(" The boundary conditions are: \n"); fflush(stdout);
-    printf("    Voltage at External Contact:   %15.10f V \n", ext_voltage); fflush(stdout);
-    printf("    Voltage at Internal Contact:   %15.10f V \n", int_voltage); fflush(stdout);
-    printf("    Cation  at External Contact:   %15.10f M \n", ext_cat_bulk); fflush(stdout);
-    printf("    Cation  at Internal Contact:   %15.10f M \n", int_cat_bulk); fflush(stdout);
-    printf("    Anion   at External Contact:   %15.10f M \n", ext_an_bulk);  fflush(stdout);
-    printf("    Anion   at Internal Contact:   %15.10f M \n", int_an_bulk);  fflush(stdout);
+    printf("    Voltage at External Contact:   %15.10f \n", ext_voltage); fflush(stdout);
+    printf("    Voltage at Internal Contact:   %15.10f \n", int_voltage); fflush(stdout);
+    printf("    Cation  at External Contact:   %15.10f \n", ext_cat_bulk); fflush(stdout);
+    printf("    Cation  at Internal Contact:   %15.10f \n", int_cat_bulk); fflush(stdout);
+    printf("    Anion   at External Contact:   %15.10f \n", ext_an_bulk);  fflush(stdout);
+    printf("    Anion   at Internal Contact:   %15.10f \n", int_an_bulk);  fflush(stdout);
     
     
     
@@ -787,7 +796,7 @@ int main()
     
     // Copy mesh and initialize CG space
     Mesh mesh0(initMesh);
-    semiconductor::FunctionSpace W0(mesh0);
+    mosfet::FunctionSpace W0(mesh0);
     uint totalRefines = 0;
     
     // Define initial guesses and residual
@@ -1052,12 +1061,12 @@ int main()
     
     // Finite element space
     printf(" Define PNP finite elements \n"); fflush(stdout);
-    semiconductor::FunctionSpace W(mesh);
+    mosfet::FunctionSpace W(mesh);
     
     // Define variational forms
     printf(" Define PNP variational forms \n\n"); fflush(stdout);
-    semiconductor::BilinearForm a(W, W);
-    semiconductor::LinearForm L(W);
+    mosfet::BilinearForm a(W, W);
+    mosfet::LinearForm L(W);
     
     
         
@@ -1083,8 +1092,9 @@ int main()
     // Define Dirichlet boundary conditions
     printf(" Define Dirichlet boundary condition \n\n"); fflush(stdout);
       DirBCval DirBC;
-      DirichletBC bc_1(W,DirBC,adapted_surfaces,3);
-      DirichletBC bc_2(W,DirBC,adapted_surfaces,4);
+      DirichletBC bc_1(W,DirBC,adapted_surfaces,1);
+      DirichletBC bc_2(W,DirBC,adapted_surfaces,2);
+      DirichletBC bc_3(W,DirBC,adapted_surfaces,3);
 
         
     
@@ -1108,8 +1118,10 @@ int main()
         Constant eps_n(epsNVal);
         Constant chrg_p(fix_p);
         Constant chrg_n(fix_n);
+        Constant gate(gate_capacitance);
         a.eps_p = eps_p; L.eps_p = eps_p;   // P-doped permittivity
         a.eps_n = eps_n; L.eps_n = eps_n;   // N-doped permittivity
+        a.gate  = gate;  L.gate  = gate;    // Gate capacitance
         L.fix_p = chrg_p;                   // P-doping
         L.fix_n = chrg_n;                   // N-doping
 
@@ -1288,7 +1300,7 @@ int main()
         L.CatCat = CatIterate;
         L.AnAn   = AnIterate;
         L.EsEs   = esIterate;
-    assemble(b,L); bc_1.apply(b); bc_2.apply(b);
+    assemble(b,L); bc_1.apply(b); bc_2.apply(b); //bc_3.apply(b);
         //bc_membrane_0.apply(b); bc_membrane_1.apply(b); bc_membrane_2.apply(b); bc_membrane_3.apply(b); bc_protein_0.apply(b);
         //bc_protein_1.apply(b); bc_protein_2.apply(b); bc_protein_3.apply(b);
     
@@ -1333,7 +1345,7 @@ int main()
         a.CatCat = CatIterate;
         a.AnAn   = AnIterate;
         a.EsEs   = esIterate;
-        assemble(A,a); bc_1.apply(A); bc_2.apply(A);
+        assemble(A,a); bc_1.apply(A); bc_2.apply(A); //bc_3.apply(A);
         //bc_membrane_0.apply(A); bc_membrane_1.apply(A); bc_membrane_2.apply(A); bc_membrane_3.apply(A);
         //bc_protein_0.apply(A); bc_protein_1.apply(A); bc_protein_2.apply(A); bc_protein_3.apply(A);
         
@@ -1429,8 +1441,8 @@ int main()
         
         for (i=0; i<nrow; i++){
             phi_idx.val[i] = 3*i;
-            K_idx.val[i]   = 3*i+1;
-            Na_idx.val[i]  = 3*i+2;
+            An_idx.val[i]  = 3*i+1;
+            Cat_idx.val[i] = 3*i+2;
         }
         
         // Assemble the matrix in block dCSR format
@@ -1447,18 +1459,18 @@ int main()
         // A12
         fasp_dcsr_getblk(&A_fasp, phi_idx.val, Cat_idx.val, nrow, nrow, Abcsr.blocks[2]);
         
-        // A41
+        // A21
         fasp_dcsr_getblk(&A_fasp, An_idx.val, phi_idx.val, nrow, nrow, Abcsr.blocks[3]);
-        // A42
+        // A22
         fasp_dcsr_getblk(&A_fasp, An_idx.val, An_idx.val, nrow, nrow, Abcsr.blocks[4]);
-        // A43
+        // A23
         fasp_dcsr_getblk(&A_fasp, An_idx.val, Cat_idx.val, nrow, nrow, Abcsr.blocks[5]);
         
-        // A51
+        // A31
         fasp_dcsr_getblk(&A_fasp, Cat_idx.val, phi_idx.val, nrow, nrow, Abcsr.blocks[6]);
-        // A52
+        // A32
         fasp_dcsr_getblk(&A_fasp, Cat_idx.val, An_idx.val, nrow, nrow, Abcsr.blocks[7]);
-        // A53
+        // A33
         fasp_dcsr_getblk(&A_fasp, Cat_idx.val, Cat_idx.val, nrow, nrow, Abcsr.blocks[8]);
         
         
@@ -1651,15 +1663,15 @@ int main()
             updateCAT.interpolate(CatIterate);
             updateAN.interpolate(AnIterate);
             updatePHI.interpolate(esIterate);
-            *(updateCAT.vector())  += *(dCat.vector());
-            *(updateAN.vector())   += *(dAn.vector());
+            *(updateCAT.vector()) += *(dCat.vector());
+            *(updateAN.vector())  += *(dAn.vector());
             *(updatePHI.vector()) += *(dphi.vector());
             
             // Evaluate residual
             L.CatCat = updateCAT;
             L.AnAn   = updateAN;
             L.EsEs   = updatePHI;
-            assemble(b,L); bc_1.apply(b); bc_2.apply(b);
+            assemble(b,L); bc_1.apply(b); bc_2.apply(b); //bc_3.apply(b);
             //bc_membrane_0.apply(b); bc_membrane_1.apply(b); bc_membrane_2.apply(b); bc_membrane_3.apply(b);
             //bc_protein_0.apply(b); bc_protein_1.apply(b); bc_protein_2.apply(b); bc_protein_3.apply(b);
             
@@ -1674,11 +1686,11 @@ int main()
             
             // check for reduced residual or NaN
             if ( (testRelRes>relR_fasp-DOLFIN_EPS) || (testRelRes!=testRelRes) ) {
+                dampFactor *= 0.5;
                 printf("   Reducing the update by a factor of %e \n", dampFactor); fflush(stdout);
-                dampFactor            *= 0.5;
-                *(dCat.vector())       *= dampFactor;
-                *(dAn.vector())        *= dampFactor;
-                *(dphi.vector())      *= dampFactor;
+                *(dCat.vector()) *= dampFactor;
+                *(dAn.vector())  *= dampFactor;
+                *(dphi.vector()) *= dampFactor;
             } else {// Significant reduction
                 reduced = true;
             }
@@ -1704,7 +1716,7 @@ int main()
         L.CatCat = CatIterate;
         L.AnAn   = AnIterate;
         L.EsEs   = esIterate;
-        assemble(b,L); bc_1.apply(b); bc_2.apply(b);
+        assemble(b,L); bc_1.apply(b); bc_2.apply(b); //bc_3.apply(b);
         //bc_membrane_0.apply(b); bc_membrane_1.apply(b); bc_membrane_2.apply(b); bc_membrane_3.apply(b);
         //bc_protein_0.apply(b); bc_protein_1.apply(b); bc_protein_2.apply(b); bc_protein_3.apply(b);
         
@@ -1862,10 +1874,10 @@ int main()
     printf(" Update mesh \n\n"); fflush(stdout);
     mesh0   = mesh;
     std::shared_ptr<const Mesh> adapted_mesh( new const Mesh(mesh0) );
-    adaptFN = adapt(esIterate, adapted_mesh);
+    adaptFN = adapt(esIterate,  adapted_mesh);
     initCat = adapt(CatIterate, adapted_mesh);
     initAn  = adapt(AnIterate,  adapted_mesh);
-    initPHI = adapt(esIterate, adapted_mesh);
+    initPHI = adapt(esIterate,  adapted_mesh);
     
     }
     

@@ -9,9 +9,9 @@ outdir       = ./output/exp
 % domain and mesh %
 %-----------------%
 
-mesh_file    = ./mesh/semiconductor/semiconductor.xml
-surf_file    = ./mesh/semiconductor/semiconductor_facet_region.xml
-subd_file    = ./mesh/semiconductor/semiconductor_physical_region.xml
+mesh_file    = ./mesh/semiconductor/mosfet.xml
+surf_file    = ./mesh/semiconductor/mosfet_facet_region.xml
+subd_file    = ./mesh/semiconductor/mosfet_physical_region.xml
 
 x_length     = 1.0     % nm = 1.0e-9 m
 y_length     = 1.0     % nm = 1.0e-9 m
@@ -25,8 +25,8 @@ t_grid       = 10
 % solver parameters %
 %-------------------%
 
-adapt_tol    = 1e-3
-nonlin_tol   = 1e-3
+adapt_tol    = 1e-6
+nonlin_tol   = 1e-10
 nonlin_maxit = 15
 damp_factor  = 1.0
 
@@ -39,14 +39,20 @@ bc_direction = 0          % direction of Dirichlet boundaries
                           % 0 x-dir | 1 y-dir | 2 z-dir
 bc_distance  = 4.0e+0     % distance between Dirichlet boundaries
 
-ext_voltage =  0.e-1      % V
-int_voltage = -0.e-1      % V
+ext_voltage =  0.0e+0      % V
+int_voltage =  0.0e+0      % V
 
-ext_cat_bulk =  1.0e-1     % mM = mol / m^3
-int_cat_bulk =  1.0e+0     % mM = mol / m^3
 
-ext_an_bulk  =  1.0e+0     % mM = mol / m^3
-int_an_bulk  =  1.0e-1     % mM = mol / m^3
+% Boundary values: intrinsic carrier concentration at T = 300K is n_i = 1.0e+16 / m^3
+% physical constraints require n*p = n_i^2 and n - p = C
+% this gives n = (sqrt( C^2 + 4*n_i^2) + C)/2
+%      and   p = (sqrt( C^2 + 4*n_i^2) - C)/2
+
+ext_cat_bulk =  6.6e+9    % mM = 1 / m^3
+int_cat_bulk =  6.6e+9    % mM = 1 / m^3
+
+ext_an_bulk  =  1.5e+22    % mM = 1 / m^3
+int_an_bulk  =  1.5e+22    % mM = 1 / m^3  
 
 
 %------------------%
@@ -55,16 +61,16 @@ int_an_bulk  =  1.0e-1     % mM = mol / m^3
 
 temperature  = 300
 
-fix_p        =  -1.0e+1    % fixed charge eC
-fix_n        =   1.0e+1    % fixed charge eC
+fix_p  = -1.5e+22    % fixed charge eC / m^3
+fix_n  = +1.5e+22    % fixed charge eC / m^3
 
-perm_p =  2.0e+0     % relative permittivity
-perm_n =  2.0e+0     % relative permittivity
+perm_p =  1.17e+1     % relative permittivity
+perm_n =  1.17e+1     % relative permittivity
 
-cat_diff_p  =  1.334e-5   % cm^2 / s
-cat_diff_n  =  1.334e-5   % cm^2 / s
+cat_diff_p  =  1.09e+1   % cm^2 / s
+cat_diff_n  =  1.07e+1   % cm^2 / s
 cat_valency =  1.0
 
-an_diff_p   =  1.334e-5   % cm^2 / s
-an_diff_n   =  1.334e-5   % cm^2 / s
+an_diff_p   =  2.87e+1   % cm^2 / s
+an_diff_n   =  2.69e+1   % cm^2 / s
 an_valency  =  -1.0
